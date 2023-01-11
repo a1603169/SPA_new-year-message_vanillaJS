@@ -1,0 +1,27 @@
+.post-btn-wrapper {
+  position: fixed;
+  top: 15px;
+  right: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.post-btn {
+  padding: 10px 100px;
+  background-color: cornflowerblue;
+  color: white;
+  border: 1px solid cornflowerblue;
+  border-radius: 5px;
+  transition: 0.3s;
+}
+
+.post-btn:hover {
+  background-color: white;
+  color: cornflowerblue;
+}
+
+.post-btn:active {
+  box-shadow: inset 0 0 15px;
+}
