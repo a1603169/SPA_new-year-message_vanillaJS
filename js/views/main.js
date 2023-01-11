@@ -18,6 +18,7 @@ function displayPostingPage() {
   document.getElementById("app").innerHTML = `
   
   `;
+  console.log("hi");
   document.getElementById("postBtn").addEventListener("click", postData);
 }
 
