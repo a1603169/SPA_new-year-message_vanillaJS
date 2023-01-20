@@ -3,50 +3,351 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="stylesheet" href="./static/style.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NUMBLE CHALLENGE</title>
   </head>
   <body>
-    <nav>
-      <a href="#home">Home</a>
-      <a href="#posting">Posting</a>
-      <a href="#posts">Board</a>
-    </nav>
     <div id="app"></div>
     <script>
-      function postData() {
-        const data = { key: "value" };
-        fetch("http://43.201.103.199/", {
-          method: "POST",
-          body: JSON.stringify(data),
+      // Delete the comment from the server
+      const deleteComment = (postId, index) => {
+        fetch(`http://43.201.103.199/post/${postId}`, {
+          method: "GET",
           headers: {
             "Content-Type": "application/json",
           },
         })
           .then((response) => response.json())
-          .then((data) => console.log(data))
+          .then((data) => {
+            console.log(typeof data.data.comments);
+            const filteredComment = data.data.comments.filter(
+              (comment) => comment.commentId === index
+            )[0];
+            const postId = data.data.post.postId;
+            fetch(
+              `http://43.201.103.199/comment/${filteredComment.commentId}`,
+              {
+                method: "DELETE",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+              }
+            )
+              .then((response) => response.json())
+              .then((data) => {
+                console.log(data);
+                if (data.code === 200) {
+                  alert("댓글이 삭제되었습니다.");
+                  window.location.hash.substr(1) = `/post/${postId}`
+                  return;
+                } else {
+                  alert("댓글 삭제에 실패했습니다.");
+                  return;
+                }
+              });
+          });
+      };
+
+      // Post a coment data from the server
+
+      const postComment = (id) => {
+        const formData = {
+          content: "",
+        };
+        const comment = document.querySelector(".comment-input").value;
+        formData["content"] = comment;
+        console.log(comment, formData);
+        if (!comment) {
+          alert("댓글을 입력해주세요.");
+          return;
+        }
+
+        fetch(`http://43.201.103.199/comment/${id}`, {
+          method: "POST",
+          body: JSON.stringify(formData),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.code === 201) {
+              const comment = data.data.content;
+              const commentsContainer =
+                document.getElementById("comments-container");
+              const commentId = data.data.commentId;
+              const commentContainer = document.createElement("li");
+              commentContainer.classList.add("comment-container");
+              commentContainer.innerHTML = `
+                    <p class="coment-content">${comment}</p>
+                    <img id="delete-comment"
+                    class="delete-comment-button"
+                    src="/deletecommentbutton.png"
+                    alt="delete_comment_button" />
+                `;
+              commentsContainer.appendChild(commentContainer);
+
+              alert("댓글이 작성되었습니다.");
+            } else {
+              alert("댓글 작성에 실패했습니다.");
+            }
+          });
+      };
+
+      // Delete the contents
+      const deletePost = (id) => {
+        fetch(`http://43.201.103.199/post/${id}`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            const confirmToDelete = confirm("정말 삭제하시겠습니까?");
+            if (confirmToDelete === false) return;
+            else if (confirmToDelete === true && data.code === 200) {
+              updateView("home");
+            } else {
+              alert("게시물 삭제에 실패했습니다.");
+            }
+          })
           .catch((error) => console.error(error));
+      };
+
+      // Modify the contents inside
+      const modifyPost = (id) => {
+        const formData = {
+          title: "",
+          content: "",
+          image: "",
+        };
+
+        // Check if all the input and image values are ready to send
+        const inputs = document.querySelectorAll(
+          ".form-input_title, .form-input_content"
+        );
+        const image = document.querySelector(".form-input_image");
+        if (
+          image.src.includes("localhost") ||
+          !inputs[0].value ||
+          !inputs[1].value
+        ) {
+          alert(
+            "이미지를 클릭하여 랜덤 이미지를 가져오거나, 게시물 제목과 내용을 모두 입력해주세요."
+          );
+          return;
+        }
+        inputs.forEach((input) => {
+          if (input.name === "contents") {
+            formData["content"] = input.value;
+          }
+          formData["title"] = input.value;
+        });
+        formData["image"] = image.src;
+
+        const confirmToModify = confirm("정말 수정하시겠습니까?");
+        if (confirmToModify === false) return;
+
+        fetch(`http://43.201.103.199/post/${id}`, {
+          method: "PATCH",
+          headers: {
+            "Access-Control-Allow-Origin": "http://localhost:5173",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.code === 200) {
+              console.log(data);
+              updateView("home");
+              window.history.back();
+            } else {
+              alert("게시물 수정에 실패했습니다.");
+            }
+          })
+          .catch((error) => console.error(error));
+      };
+
+      // Get the data based on the postId from the server
+      function getPost(postId) {
+        fetch(`http://43.201.103.199/post/${postId}`, {
+          method: "get",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            const linkToPostId = document.getElementById("postId");
+            const postTitle = document.getElementById("post-title");
+            const postImage = document.getElementById("post-image");
+            const postContent = document.getElementById("post-content");
+            const postUpdatedAt = document.getElementById("post-updated_at");
+            const backButton = document.getElementById("back-button");
+            postTitle.innerHTML = data.data.post.title;
+            postImage.src = data.data.post.image;
+            postContent.innerHTML = data.data.post.content;
+            postUpdatedAt.innerHTML = data.data.post.updatedAt
+              ? data.data.post.updatedAt.substr(0, 10)
+              : data.data.post.createdAt;
+            const comments = data.data.comments;
+            console.log(comments);
+
+            comments.forEach((comment) => {
+              const commentId = comment.commentId;
+              const postId = comment.postId;
+              const commentsContainer =
+                document.getElementById("comments-container");
+              const commentItem = document.createElement("li");
+              commentItem.setAttribute("data-index", commentId);
+              commentItem.classList.add("comment-container");
+              const data_index = commentItem.getAttribute("data-index");
+              const result = comments.filter((comment) => {
+                return comment.commentId === data_index;
+              });
+
+              console.log(result);
+
+              commentItem.innerHTML = `
+              <p class="coment-content">${comment.content}</p>
+                <img id="delete-comment"
+                class="delete-comment-button"
+                src="/deletecommentbutton.png"
+                alt="delete_comment_button" />
+                `;
+              commentsContainer.appendChild(commentItem);
+              const deleteCommentButton =
+                document.getElementById("delete-comment");
+              // console.log(deleteCommentButton);
+              deleteCommentButton.addEventListener("click", () => {
+                deleteComment(postId, data_index);
+              });
+            });
+          });
+      }
+
+      // Get the data from the server for lists
+      function getPosts() {
+        fetch("http://43.201.103.199/posts", {
+          method: "get",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            data.data.posts.reverse().forEach((post) => {
+              const postsContainer = document.getElementById(
+                "posts-inner_container"
+              );
+              const postItem = document.createElement("li");
+              postItem.classList.add("link-card_container");
+              postItem.innerHTML = `
+                  <a class="link-card" id="${post.postId}" href="#post/${post.postId}">
+                    <img class="post-image" src="${post.image}" alt="post_image" loading=""/>
+                    <div class="post-text">
+                      <h3>${post.title}</h3>
+                      <p>${post.content}</p>
+                    </div>
+                  </a>
+                `;
+              postsContainer.appendChild(postItem);
+            });
+          })
+          .catch((error) => console.error(error));
+      }
+      // Get random image from unsplash
+      function getRandomImage() {
+        fetch("https://source.unsplash.com/random")
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error("Error fetching image");
+            }
+            return response.url;
+          })
+          .then((url) => {
+            const image = document.querySelector(".form-input_image");
+            image.src = url;
+          })
+          .catch((error) => console.error(error));
+      }
+
+      // Post data
+      function postData() {
+        const formData = {
+          title: "",
+          content: "",
+          image: "",
+        };
+        // Check if all the input and image values are ready to send
+        const inputs = document.querySelectorAll(
+          ".form-input_title, .form-input_content"
+        );
+        const image = document.querySelector(".form-input_image");
+        if (
+          image.src.includes("localhost") ||
+          !inputs[0].value ||
+          !inputs[1].value
+        ) {
+          alert(
+            "이미지를 클릭하여 랜덤 이미지를 가져오거나, 게시물 제목과 내용을 모두 입력해주세요."
+          );
+          return;
+        }
+
+        inputs.forEach((input) => {
+          if (input.name === "contents") {
+            formData["content"] = input.value;
+          }
+          formData["title"] = input.value;
+        });
+        formData["image"] = image.src;
+
+        fetch("http://43.201.103.199/post", {
+          method: "POST",
+          body: JSON.stringify(formData),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            console.log(data);
+            // Redirect to the home page if it is successful
+            if (data.code === 201 || data.code === 200) {
+              updateView("home");
+              window.history.back();
+            }
+            // Error handling
+            else
+              alert(
+                "게시물 제목이 중복이거나 이미지가 없습니다. 확인 후 다시 시도해주세요."
+              );
+          })
+          .catch((error) => console.error(error));
+
+        // Reset the form
+        inputs.forEach((input) => {
+          input.value = "";
+        });
+        image.src = "../public/image_input.png";
       }
 
       // Data
       const pages = {
         home: {
           title: "home",
-          content: "Welcome to my SPA",
         },
         posting: {
           title: "Posting",
-          content: "Welcome to post something",
-        },
-        posts: {
-          title: "Posts",
-          content: "Here are posts",
-          postsList: [],
         },
         post: {
-          title: "Post",
-          content: "Here is a post",
-          id: "",
+          title: "Posts",
         },
       };
 
@@ -60,40 +361,120 @@
       function updateView(route) {
         const app = document.getElementById("app");
         const page = pages[route] || pages.home;
-        if (route === "home") {
+
+        const postId = window.location.hash.substr(6);
+        if (postId.trim() !== "") getPost(postId);
+
+        if (route === "home" || route === "" || route === "/") {
+          console.log("this is home page");
+
+          getPosts();
           app.innerHTML = `
-          <button id="link-button">
-            <a href="#posting">게시글 작성하기</a>  
-          </button>
-          <h1>${page.title}</h1>
-          <p>${page.content}</p>
+          <header class="header-container_home">
+            <h2 class="header-title">HPNY 2023</h1>
+          </header>
+          <section class="link-container">
+            <a class="btn-primary" href="#posting">게시글 작성하기</a>
+          </section>
+          <section class="posts-outer_container">
+            <ul class="lists-inner_container" id="posts-inner_container">
+            </ul>
+          </section>
           `;
         } else if (route === "posting") {
           console.log("this is posting page");
           app.innerHTML = `
-          <h1>${page.title}</h1>
-          <p>${page.content}</p>
-          <div>BackButton</div>
-          <img src="" alt="test"/>
-          <form id="title" action="/submit" method="post">
-            <input type="text" name="title" />
-            <input type="text" name="contents" />
+          <header class="header-container">
+            <img id="back-button" src="/backbutton.png" alt="back_button"/>
+            <h2 class="header-title">HPNY 2023</h1>
+          </header>
+          <div class="form-container">
+            <img id="input-image" class="form-input_image" src="/image_input.png" alt="image_input />
+            <form class="form-input" id="title" action="/submit" method="post">
+              <label class="form-title" for="title">제목</label>
+              <input class="form-input_title" placeholder="글 제목을 입력해주세요" type="text" name="title" />
+              <label class="form-title" for="contents">내용</label>
+              <textarea class="form-input_content" placeholder="글 내용을 입력해주세요" type="textarea" name="contents"></textarea>
+              <button id="post-button" class="btn-primary" type="submit">등록하기</button>
             </form>
+          </div>
             `;
+          const backButton = document.getElementById("back-button");
           const postButton = document.getElementById("post-button");
-          postButton.addEventListener("click", () => {
-            postData();
+          const imageInput = document.getElementById("input-image");
+
+          backButton.addEventListener("click", () => {
+            window.history.back();
           });
-        } else if (route === "posts") {
+
+          postButton.addEventListener("click", () => {
+            console.log(window.location.hash.substr(1));
+            if (window.location.hash.substr(1) === "posting") postData();
+            else {
+              modifyPost(postId);
+            }
+          });
+
+          imageInput.addEventListener("click", () => {
+            getRandomImage();
+          });
+        } else if (route === `post/${postId}`) {
           app.innerHTML = `
-          <h1>${page.title}</h1>
-          <p>${page.content}</p>`;
+          <header class="header-container">
+            <img id="back-button" src="/backbutton.png" alt="back_button"/>
+            <h2 class="header-title">HPNY 2023</h1>
+          </header>
+          <div class="post-container">
+            <img id="post-image" class="post-image" src="" alt="post_image" />
+            <div class="post-content">
+              <h2 id="post-title" class="post-title"></h2>
+              <p id="post-updated_at" class="post-time"></p>
+              <p id="post-content" class="post-contents"></p>
+              <div class="post-icons">
+                <img class="post-icon_modify-image" src="/modifybutton.png" alt="modify_button" id="modify-button" />
+                <img class="post-icon_delete-image" src="/deletebutton.png" alt="delete_button" id="delete-button" />
+              </div>
+            </div>
+          </div>
+          <hr/>
+          <div id="comments-container" class="comment-outer_container">
+          </div>
+          <div class="comment-input_container">
+            <textarea class="comment-input" placeholder="댓글을 입력해주세요" type="text" name="comment"></textarea>
+            <button id="comment-submit" class="btn-primary" type="submit">등록하기</button>
+          </div>
+          `;
+
+          const backButton = document.getElementById("back-button");
+          const modifyButton = document.getElementById("modify-button");
+          const deletePostButton = document.getElementById("delete-button");
+          const commentSubmit = document.getElementById("comment-submit");
+          const commentInput = document.querySelector(".comment-input");
+
+          commentSubmit.addEventListener("click", () => {
+            postComment(postId);
+            commentInput.value = "";
+          });
+
+          backButton.addEventListener("click", (id) => {
+            window.history.back();
+          });
+          modifyButton.addEventListener("click", () => {
+            updateView("posting");
+          });
+          deletePostButton.addEventListener("click", () => {
+            deletePost(postId);
+          });
+        } else {
+          app.innerHTML = `
+          <h1>404</h1>
+          <p>page is not found</p>`;
+          console.log(route);
         }
       }
 
       // Initial view
       const initialRoute = window.location.hash.substr(1) || "home";
-      console.log(initialRoute);
       updateView(initialRoute);
     </script>
   </body>
